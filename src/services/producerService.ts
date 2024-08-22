@@ -40,7 +40,11 @@ export const getProducersQuery = async (limit?: number, chain: 'mainnet' | 'test
                     time_stamp: 'desc'
                 },
                 take: 1
-            }
+            },
+            bundleVotes: true,
+            feeMultiplier: true,
+            feeVotes: true,
+            tools: true
         },
         orderBy: {
             total_votes: 'desc'
@@ -50,7 +54,7 @@ export const getProducersQuery = async (limit?: number, chain: 'mainnet' | 'test
 
     // Assemble other producer content
     return producers.map(producer => {
-        const { extendedData, socials, nodes, branding, scores, ...producerData } = producer;
+        const { extendedData, socials, nodes, branding, scores, bundleVotes, feeMultiplier, feeVotes, tools, ...producerData } = producer;
 
         // Transform socials array into an object
         const formattedSocials = socials.reduce((acc, social) => {
@@ -94,6 +98,33 @@ export const getProducersQuery = async (limit?: number, chain: 'mainnet' | 'test
             ? `${fullBaseUrl}/flags/${extendedData.location_country.toLowerCase()}.svg`
             : null;
 
+        // Format bundleVotes (now returns an empty object if null)
+        const formattedBundleVotes = bundleVotes ? {
+            bundledbvotenumber: bundleVotes.bundledbvotenumber,
+            lastvotetimestamp: bundleVotes.lastvotetimestamp
+        } : {};
+
+        // Format feeMultiplier (now returns an empty object if null)
+        const formattedFeeMultiplier = feeMultiplier ? {
+            multiplier: feeMultiplier.multiplier,
+            last_vote: feeMultiplier.last_vote
+        } : {};
+
+        // Format feeVotes
+        const formattedFeeVotes = feeVotes.reduce((acc, vote) => {
+            acc[vote.end_point] = {
+                value: vote.value.toString(), // Convert BigInt to string
+                last_vote: vote.last_vote
+            };
+            return acc;
+        }, {} as { [key: string]: { value: string, last_vote: Date } });
+
+        // Format tools (already returns an empty object if empty)
+        const formattedTools = tools.reduce((acc, tool) => {
+            acc[tool.toolName] = tool.toolUrl;
+            return acc;
+        }, {} as { [key: string]: string });
+
         return {
             ...producerData,
             total_votes: Number(producerData.total_votes),
@@ -108,7 +139,11 @@ export const getProducersQuery = async (limit?: number, chain: 'mainnet' | 'test
                 score: latestScore.score,
                 max_score: latestScore.max_score,
                 grade: latestScore.grade
-            } : null
+            } : null,
+            bundleVotes: formattedBundleVotes,
+            feeMultiplier: formattedFeeMultiplier,
+            feeVotes: formattedFeeVotes,
+            tools: formattedTools
         };
     });
 };
