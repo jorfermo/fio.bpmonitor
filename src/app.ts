@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import { config } from './config/env';
 import apiRoutes from './routes/publicApiRoutes';
-import { logger_log, logger_error } from './utils/logger';
+import { logger_log } from './utils/logger';
 
 // Cron setup
 import './utils/cronJob';

@@ -1,17 +1,7 @@
 import { prisma } from '../config/database';
 import { config } from '../config/env';
-import axios, { AxiosResponse } from 'axios';
+import axios from 'axios';
 import { logger_log, logger_error } from '../utils/logger';
-
-interface Proposal {
-    provided_approvals: any[];
-    block_num: number;
-    proposer: string;
-    requested_approvals: any[];
-    proposal_name: string;
-    executed: boolean;
-    primary_key: string;
-}
 
 const axiosInstance = axios.create({
     timeout: 30000, // 30 seconds
@@ -22,15 +12,13 @@ export async function getProposalQuery(limit?: number, chain: string = 'Mainnet'
     try {
         const whereClause = { chain };
 
-        const proposals = await prisma.proposals.findMany({
+        return await prisma.proposals.findMany({
             where: whereClause,
             orderBy: {
                 time_stamp: 'desc'
             },
             take: limit
         });
-
-        return proposals;
     } catch (error) {
         logger_error('PROPOSALS', 'Error fetching proposals:', error);
         throw error;

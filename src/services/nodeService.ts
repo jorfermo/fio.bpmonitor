@@ -1,6 +1,6 @@
 import { prisma } from '../config/database';
 import { config } from '../config/env';
-import { logger_log, logger_error } from '../utils/logger';
+import { logger_log } from '../utils/logger';
 import axios from 'axios';
 
 // Queries db for active node data
@@ -22,11 +22,9 @@ export const getNodesQuery = async (chain: 'mainnet' | 'testnet' = 'mainnet', ty
             break;
     }
 
-    const nodes = await prisma.producerNodes.findMany({
+    return await prisma.producerNodes.findMany({
         where: whereClause,
     });
-
-    return nodes;
 };
 
 // Checks nodes in producerNodes

@@ -61,7 +61,7 @@ export async function calculateProducerScores() {
             producersByChain[producer.chain].push(producer);
         });
 
-        for (const [chain, chainProducers] of Object.entries(producersByChain)) {
+        for (const [, chainProducers] of Object.entries(producersByChain)) {
             // Sort producers by total_votes for each chain
             const sortedProducers = chainProducers.sort((a, b) => Number(b.total_votes) - Number(a.total_votes));
 
