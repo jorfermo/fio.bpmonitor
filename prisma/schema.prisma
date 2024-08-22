@@ -1,0 +1,171 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model producer {
+  id                  Int                    @id @default(autoincrement())
+  chain               String
+  chain_table_id      Int
+  owner               String
+  fio_address         String
+  addresshash         String
+  total_votes         BigInt
+  producer_public_key String
+  status              String                 @default("active")
+  url                 String
+  unpaid_blocks       Int
+  last_claim_time     DateTime
+  last_bpclaim        Int
+  location            Int
+  extendedData        producerExtendedData?
+  branding            producerBranding[]
+  socials             producerSocials[]
+  nodes               producerNodes[]
+  feeMultiplier       producerFeeMultiplier?
+  feeVotes            producerFeeVotes[]
+  bundleVotes         producerBundleVotes?
+  scores              producerScores[]
+  tools               producerTools[]
+
+  @@unique([chain, chain_table_id])
+}
+
+model producerExtendedData {
+  id                   Int      @id @default(autoincrement())
+  candidate_name       String
+  website              String
+  code_of_conduct      String
+  email                String
+  ownership_disclosure String
+  location_name        String
+  location_country     String
+  location_latitude    Float
+  location_longitude   Float
+  producerId           Int      @unique
+  producer             producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+}
+
+model producerBranding {
+  id         Int      @id @default(autoincrement())
+  producerId Int
+  type       String
+  url        String
+  producer   producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+
+  @@unique([producerId, type])
+}
+
+model producerSocials {
+  id         Int      @id @default(autoincrement())
+  producerId Int
+  type       String
+  handle     String
+  producer   producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+
+  @@unique([producerId, type])
+}
+
+model producerNodes {
+  id                 Int             @id @default(autoincrement())
+  chain              String
+  producerId         Int
+  location_name      String
+  location_country   String
+  location_latitude  Float
+  location_longitude Float
+  type               String
+  url                String
+  api                Boolean
+  historyV1          Boolean
+  hyperion           Boolean
+  server_version     String
+  status             String          @default("new")
+  producer           producer        @relation(fields: [producerId], references: [id], onDelete: Cascade)
+  apiNodeChecks      apiNodeCheck[]
+  apiFetchChecks     apiFetchCheck[]
+}
+
+model apiNodeCheck {
+  id              Int           @id @default(autoincrement())
+  time_stamp      DateTime      @default(now())
+  nodeId          Int
+  server_version  String?
+  head_block_time DateTime?
+  status          Int
+  producerNode    producerNodes @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+}
+
+model apiFetchCheck {
+  id           Int           @id @default(autoincrement())
+  time_stamp   DateTime      @default(now())
+  nodeId       Int
+  results      Int
+  producerNode producerNodes @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+}
+
+model producerFeeMultiplier {
+  id         Int      @id @default(autoincrement())
+  producerId Int      @unique
+  multiplier Float
+  last_vote  DateTime
+  producer   producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+}
+
+model producerFeeVotes {
+  id         Int      @id @default(autoincrement())
+  producerId Int
+  end_point  String
+  value      BigInt
+  last_vote  DateTime
+  producer   producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+
+  @@unique([producerId, end_point])
+}
+
+model producerBundleVotes {
+  id                 Int      @id @default(autoincrement())
+  producerId         Int
+  bundledbvotenumber Int
+  lastvotetimestamp  DateTime
+  producer           producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+
+  @@unique([producerId])
+}
+
+model proposals {
+  id            Int      @id @default(autoincrement())
+  chain         String
+  proposal_name String
+  block_num     Int
+  time_stamp    DateTime
+  requested     Json
+  received      Json
+
+  @@unique([proposal_name, block_num])
+}
+
+model producerScores {
+  id         Int      @id @default(autoincrement())
+  time_stamp DateTime @default(now())
+  producerId Int
+  details    Json
+  score      Int
+  max_score  Int
+  grade      String
+  producer   producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+}
+
+model producerTools {
+  id         Int      @id @default(autoincrement())
+  producerId Int
+  toolName   String
+  toolUrl    String
+  producer   producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+
+  @@unique([producerId, toolName])
+}
