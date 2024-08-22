@@ -6,7 +6,7 @@ export const getProposals = async (req: Request, res: Response) => {
     try {
         const { limit, chain } = req.query;
         const limitNumber = limit ? parseInt(limit as string, 10) : undefined;
-        const chainValue = chain as string | undefined;
+        const chainValue = chain as 'mainnet' | 'testnet' | undefined;
 
         const proposals = await getProposalQuery(limitNumber, chainValue);
         res.json(proposals);

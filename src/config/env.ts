@@ -7,10 +7,11 @@ export const config = {
     dbUrl: process.env.DATABASE_URL || "postgresql://postgres:password@localhost:5432/bpmonitor",
     port: process.env.PORT || 4000,
     logging: process.env.LOGGING || 'console',
+    loggingLevel: process.env.LOGGING_LEVEL || 'info',
     json_fetch_timeout: Number(process.env.JSON_FETCH_TIMEOUT) || 5000,
     node_check_timeout: Number(process.env.NODE_CHECK_TIMEOUT) || 10000,
-    mainnetApiUrl: process.env.MAINNET_API_URL || "https://fio.cryptolions.io",// Must run Hyperion
-    testnetApiUrl: process.env.TESTNET_API_URL || "http://testnet.fioprotocol.io",// Must run Hyperion
+    mainnetApiUrl: process.env.MAINNET_API_URL || "https://api.fiosweden.org",// Must run Hyperion
+    testnetApiUrl: process.env.TESTNET_API_URL || "https://api.testnet.fiosweden.org",// Must run Hyperion
     mainnetChainId: process.env.MAINNET_CHAIN_ID || "21dcae42c0182200e93f954a074011f9048a7624c6fe81d3c9541a614a88bd1c",
     testnetChainId: process.env.TESTNET_CHAIN_ID || "b20901380af44ef59c5918439a1f9a41d83669020319a80574b804a5f95cbd7e",
     mainnetProposer: process.env.MAINNET_PROPOSER || "fio1uipge5sr",

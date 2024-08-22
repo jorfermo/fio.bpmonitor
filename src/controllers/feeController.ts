@@ -5,8 +5,8 @@ import { logger_error } from '../utils/logger';
 export const getFees = async (req: Request, res: Response) => {
     try {
         const { chain, type } = req.query;
-        const chainValue = chain as 'mainnet' | 'testnet';
-        const typeValue = type as 'by_producer' | 'by_fee';
+        const chainValue = chain as 'mainnet' | 'testnet' | undefined;
+        const typeValue = type as 'by_producer' | 'by_fee' | undefined;
 
         const fees = await getFeesQuery(chainValue, typeValue);
         res.json(fees);

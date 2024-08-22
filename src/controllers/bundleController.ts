@@ -5,7 +5,7 @@ import { logger_error } from '../utils/logger';
 export const getBundles = async (req: Request, res: Response) => {
     try {
         const { chain } = req.query;
-        const chainValue = chain as 'mainnet' | 'testnet';
+        const chainValue = chain as 'mainnet' | 'testnet' | undefined;
 
         const bundles = await getBundlesQuery(chainValue);
         res.json(bundles);

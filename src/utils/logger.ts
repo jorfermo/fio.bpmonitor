@@ -27,7 +27,7 @@ const writeLog = (level: string, section: string, message: string) => {
 };
 
 export const logger_log = (section: string, message: string) => {
-    writeLog('INFO', section, message);
+    if (config.loggingLevel === 'info') writeLog('INFO', section, message);
 };
 
 export const logger_error = (section: string, message: string, error: any) => {

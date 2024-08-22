@@ -22,7 +22,7 @@ cron.schedule('38 * * * *', async () => {
     }
 });
 
-// +3
+// +3 min
 cron.schedule('41 * * * *', async () => {
     try {
         await checkNode();
