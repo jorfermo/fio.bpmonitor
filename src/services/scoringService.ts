@@ -1,5 +1,4 @@
 import {prisma} from '../config/database';
-import { parseJsonValue } from "../utils/helpers";
 import {config} from '../config/env';
 import {logger_error, logger_log} from '../utils/logger';
 
@@ -143,7 +142,11 @@ async function calculateProducerScore(producer: any, scoringCriteriaAll: Scoring
             score: 0
         },
         signs_msigs: {
-            status: isTop21 ? await checkSignsMsigs(producer).catch(() => false) : false,
+            status: false,
+            score: 0
+        },
+        signs_msigs_quickly: {
+            status: false,
             score: 0
         },
         runs_tools: {
@@ -156,21 +159,29 @@ async function calculateProducerScore(producer: any, scoringCriteriaAll: Scoring
     let maxScore = 0;
 
     // Calculate score for all criteria
-    for (const [key, value] of Object.entries(details)) {
-        if (scoringCriteriaAll[key]) {
-            maxScore += scoringCriteriaAll[key];
-            if (value.status) {
-                value.score = scoringCriteriaAll[key];
-                totalScore += scoringCriteriaAll[key];
-            }
+    for (const [key, value] of Object.entries(scoringCriteriaAll)) {
+        maxScore += value;
+        if (details[key] && details[key].status) {
+            details[key].score = value;
+            totalScore += value;
         }
     }
 
     // Add top 21 criteria if applicable
     if (isTop21) {
+        const msigResults = await checkSignsMsigs(producer).catch((error) => {
+            logger_error('SCORING', `Error checking MSIGs for producer ${producer.owner}:`, error);
+            return { signedMsigs: false, signedMsigsQuickly: false };
+        });
+
         for (const [key, score] of Object.entries(scoringCriteriaTop21)) {
             maxScore += score;
-            if (details[key] && details[key].status) {
+            if (key === 'signs_msigs' && msigResults.signedMsigs) {
+                details[key].status = true;
+                details[key].score = score;
+                totalScore += score;
+            } else if (key === 'signs_msigs_quickly' && msigResults.signedMsigsQuickly) {
+                details[key].status = true;
                 details[key].score = score;
                 totalScore += score;
             }
@@ -287,11 +298,13 @@ function checkRecentFeeVote(producer: any) {
     return recentMultiplierVote || recentFeeVote;
 }
 
-// Determines if producer signed requested msigs
+// Determines if producer signed msigs and if they signed quickly
 async function checkSignsMsigs(producer: any) {
     const evaluateMsigsCount = config.evaluate_msigs_count;
     const evaluateMsigsPercent = config.evaluate_msigs_percent;
     const evaluateMsigsTime = config.evaluate_msigs_time;
+
+    logger_log('SCORING', `Checking MSIGs for producer ${producer.owner}`);
 
     const recentProposals = await prisma.proposals.findMany({
         where: { chain: producer.chain },
@@ -299,52 +312,50 @@ async function checkSignsMsigs(producer: any) {
         take: evaluateMsigsCount,
     });
 
-    let requestedCount = 0;
+    let totalProposals = recentProposals.length;
     let signedCount = 0;
     let signedQuicklyCount = 0;
 
     for (const proposal of recentProposals) {
-        const requestedActors = parseJsonValue(proposal.requested);
-        const receivedActors = parseJsonValue(proposal.received);
+        let receivedActors: any[] = [];
 
-        const wasRequested = requestedActors.includes(producer.owner);
+        try {
+            if (typeof proposal.received === 'string') {
+                receivedActors = JSON.parse(proposal.received);
+            } else if (Array.isArray(proposal.received)) {
+                receivedActors = proposal.received;
+            }
+        } catch (error) {
+            logger_error('SCORING', `Error parsing proposal`, error);
+            continue;  // Skip
+        }
 
-        if (wasRequested) {
-            requestedCount++;
-            const hasSigned = receivedActors.includes(producer.owner);
+        const producerSignature = receivedActors.find(item => item && typeof item === 'object' && item.actor === producer.owner);
 
-            if (hasSigned) {
-                signedCount++;
-                const producerSignature = parseJsonValue(proposal.received)
-                    .find(item => item.actor === producer.owner);
+        if (producerSignature) {
+            signedCount++;
 
-                if (producerSignature && producerSignature.time) {
-                    const proposalTime = new Date(proposal.time_stamp);
-                    const signTime = new Date(producerSignature.time);
-                    const daysDifference = (signTime.getTime() - proposalTime.getTime()) / (1000 * 3600 * 24);
+            if (producerSignature.time) {
+                const proposalTime = new Date(proposal.time_stamp);
+                const signTime = new Date(producerSignature.time);
+                const daysDifference = (signTime.getTime() - proposalTime.getTime()) / (1000 * 3600 * 24);
 
-                    if (daysDifference <= evaluateMsigsTime) {
-                        signedQuicklyCount++;
-                    }
+                if (daysDifference <= evaluateMsigsTime) {
+                    signedQuicklyCount++;
                 }
             }
         }
     }
 
-    let signedPercentage = requestedCount > 0
-        ? (signedCount / requestedCount) * 100
-        : 0;
+    const signedPercentage = (signedCount / totalProposals) * 100;
+    const signedQuicklyPercentage = (signedQuicklyCount / totalProposals) * 100;
 
-    const signedQuicklyPercentage = requestedCount > 0
-        ? (signedQuicklyCount / requestedCount) * 100
-        : 0;
+    logger_log('SCORING', `Producer ${producer.owner}: Signed ${signedCount}/${totalProposals} (${signedPercentage.toFixed(2)}%), Signed Quickly ${signedQuicklyCount}/${totalProposals} (${signedQuicklyPercentage.toFixed(2)}%)`);
 
-    // Cut the score in half if not enough proposals were signed quickly
-    if (signedQuicklyPercentage < evaluateMsigsPercent) {
-        signedPercentage = signedPercentage / 2;
-    }
-
-    return signedPercentage >= evaluateMsigsPercent;
+    return {
+        signedMsigs: signedPercentage >= evaluateMsigsPercent,
+        signedMsigsQuickly: signedQuicklyPercentage >= evaluateMsigsPercent
+    };
 }
 
 // Saves producer score and grade

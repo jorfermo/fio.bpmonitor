@@ -1,4 +1,4 @@
-| Chain |Producer|Tool name|Tool Url|
+|Chain|Producer|Tool name|Tool Url|
 |---|---|---|---|
 |Mainnet|lion4uxxfbqo|Monitor|https://monitor.fioprotocol.io/|
 |Testnet|5du5xkgkki5x|Monitor|http://monitor.testnet.fioprotocol.io:3000/|
@@ -14,5 +14,11 @@
 |Mainnet|blockp43pubs|Producer Ranking|https://snap.blockpane.com/chains/fio-mainnet/|
 |Mainnet|blockp43pubs|Producer Health|https://health.fioprotocol.io/|
 |Mainnet|blockp43pubs|FIO Fee Microservice|https://fio-stats.blockpane.com/v1/docs|
-|Mainnet|mak1ed5b4k1v|Chain Snapshots|https://snap.blockpane.com/chains/fio/|
+|Mainnet|blockp43pubs|Chain Snapshots|https://snap.blockpane.com/chains/fio/|
 |Testnet|yxeiw3p53dns|Chain Snapshots|https://snap.blockpane.com/chains/fio/|
+|Mainnet|mak1ed5b4k1v|Wrapping Oracle|https://fioprotocol.atlassian.net/wiki/spaces/DAO/pages/544014340/Custodians+and+Oracles|
+|Mainnet|jnmwi5vu3hle|Wrapping Oracle|https://fioprotocol.atlassian.net/wiki/spaces/DAO/pages/544014340/Custodians+and+Oracles|
+|Mainnet|hkzfdcxe11us|Wrapping Oracle|https://fioprotocol.atlassian.net/wiki/spaces/DAO/pages/544014340/Custodians+and+Oracles|
+|Testnet|41ksaga2vybn|Wrapping Oracle|https://fioprotocol.atlassian.net/wiki/spaces/DAO/pages/544014340/Custodians+and+Oracles|
+|Testnet|yz5p4rb4begx|Wrapping Oracle|https://fioprotocol.atlassian.net/wiki/spaces/DAO/pages/544014340/Custodians+and+Oracles|
+|Testnet|gws1hlwlqhq1|Wrapping Oracle|https://fioprotocol.atlassian.net/wiki/spaces/DAO/pages/544014340/Custodians+and+Oracles|

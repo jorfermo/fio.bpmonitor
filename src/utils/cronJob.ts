@@ -6,8 +6,10 @@ import { triggerBundleFetch } from '../services/bundleService';
 import { fetchProposals } from '../services/proposalService';
 import { calculateProducerScores } from '../services/scoringService';
 import { logger_log, logger_error } from './logger';
+import { triggerToolsFetch } from "../services/toolsService";
 
-cron.schedule('38 * * * *', async () => {
+// Refresh Producers from chain
+cron.schedule('1 1 * * *', async () => {
     try {
         await fetchProducers();
         logger_log('CRON','fetchAndUpdateProducers ran successfully.');
@@ -22,8 +24,8 @@ cron.schedule('38 * * * *', async () => {
     }
 });
 
-// +3 min
-cron.schedule('41 * * * *', async () => {
+// Check Producer Nodes
+cron.schedule('6 */6 * * *', async () => {
     try {
         await checkNode();
         logger_log('CRON','checkNode ran successfully.');
@@ -36,8 +38,8 @@ cron.schedule('41 * * * *', async () => {
     }
 });
 
-// +3
-cron.schedule('44 * * * *', async () => {
+// Check Producer Fee votes
+cron.schedule('16 */3 * * *', async () => {
     try {
         await triggerFeeMultiplierFetch();
         logger_log('CRON', 'fetchAndUpdateFees ran successfully.');
@@ -52,8 +54,8 @@ cron.schedule('44 * * * *', async () => {
     }
 });
 
-// +1
-cron.schedule('45 * * * *', async () => {
+// Check Producer msig participation
+cron.schedule('21 1 * * *', async () => {
     try {
         await fetchProposals();
         logger_log('CRON', 'fetchProposals ran successfully.');
@@ -66,8 +68,22 @@ cron.schedule('45 * * * *', async () => {
     }
 });
 
-// +1
-cron.schedule('46 * * * *', async () => {
+// Fetch BP Tools
+cron.schedule('26 1 * * *', async () => {
+    try {
+        await triggerToolsFetch();
+        logger_log('CRON', 'fetchAndUpdateProducerTools ran successfully.');
+    } catch (error) {
+        if (error instanceof Error) {
+            logger_error('CRON', `fetchAndUpdateProducerTools job failed.`, error);
+        } else {
+            logger_log('CRON', 'fetchAndUpdateProducerTools job failed with an unknown error.');
+        }
+    }
+});
+
+// Calculate Producer Scores
+cron.schedule('31 1 * * *', async () => {
     try {
         await calculateProducerScores();
         logger_log('CRON', 'calculateProducerScores ran successfully.');
