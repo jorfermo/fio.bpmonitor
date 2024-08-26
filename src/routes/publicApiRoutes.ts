@@ -12,7 +12,7 @@ router.get('/producers', getProducers);
 router.get('/nodes', getNodes);
 router.get('/fees', getFees);
 router.get('/bundles', getBundles);
-router.get('/proposal', getProposals);
+router.get('/proposals', getProposals);
 router.get('/scores', getScores);
 
 export default router;
