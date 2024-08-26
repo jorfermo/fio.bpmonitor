@@ -47,8 +47,7 @@ export async function calculateProducerScores() {
             },
         });
 
-        const scoringCriteriaAll: ScoringCriteria = config.scoringCriteriaAll;
-        const scoringCriteriaTop21: ScoringCriteria = config.scoringCriteriaTop21;
+        const scoringCriteria: ScoringCriteria = config.scoringCriteria;
         const resultPercentiles = config.resultPercentiles;
 
         // Group producers by chain
@@ -61,14 +60,9 @@ export async function calculateProducerScores() {
         });
 
         for (const [, chainProducers] of Object.entries(producersByChain)) {
-            // Sort producers by total_votes for each chain
-            const sortedProducers = chainProducers.sort((a, b) => Number(b.total_votes) - Number(a.total_votes));
-
-            for (let i = 0; i < sortedProducers.length; i++) {
-                const producer = sortedProducers[i];
-                const isTop21 = i < 21;
+            for (const producer of chainProducers) {
                 try {
-                    const score = await calculateProducerScore(producer, scoringCriteriaAll, scoringCriteriaTop21, resultPercentiles, isTop21);
+                    const score = await calculateProducerScore(producer, scoringCriteria, resultPercentiles);
                     await saveScore(producer.id, score);
                 } catch (error) {
                     logger_error('SCORING', `Error calculating score for producer ${producer.id}:`, error);
@@ -83,7 +77,7 @@ export async function calculateProducerScores() {
 }
 
 // Calculates score for a single producer
-async function calculateProducerScore(producer: any, scoringCriteriaAll: ScoringCriteria, scoringCriteriaTop21: ScoringCriteria, resultPercentiles: any, isTop21: boolean) {
+async function calculateProducerScore(producer: any, scoringCriteria: ScoringCriteria, resultPercentiles: any) {
     const details: { [key: string]: { status: boolean; score: number } } = {
         has_bp_json: {
             status: !!producer.extendedData,
@@ -159,7 +153,7 @@ async function calculateProducerScore(producer: any, scoringCriteriaAll: Scoring
     let maxScore = 0;
 
     // Calculate score for all criteria
-    for (const [key, value] of Object.entries(scoringCriteriaAll)) {
+    for (const [key, value] of Object.entries(scoringCriteria)) {
         maxScore += value;
         if (details[key] && details[key].status) {
             details[key].score = value;
@@ -167,25 +161,21 @@ async function calculateProducerScore(producer: any, scoringCriteriaAll: Scoring
         }
     }
 
-    // Add top 21 criteria if applicable
-    if (isTop21) {
-        const msigResults = await checkSignsMsigs(producer).catch((error) => {
-            logger_error('SCORING', `Error checking MSIGs for producer ${producer.owner}:`, error);
-            return { signedMsigs: false, signedMsigsQuickly: false };
-        });
+    const msigResults = await checkSignsMsigs(producer).catch((error) => {
+        logger_error('SCORING', `Error checking MSIGs for producer ${producer.owner}:`, error);
+        return { signedMsigs: false, signedMsigsQuickly: false };
+    });
 
-        for (const [key, score] of Object.entries(scoringCriteriaTop21)) {
-            maxScore += score;
-            if (key === 'signs_msigs' && msigResults.signedMsigs) {
-                details[key].status = true;
-                details[key].score = score;
-                totalScore += score;
-            } else if (key === 'signs_msigs_quickly' && msigResults.signedMsigsQuickly) {
-                details[key].status = true;
-                details[key].score = score;
-                totalScore += score;
-            }
-        }
+    if (msigResults.signedMsigs) {
+        details['signs_msigs'].status = true;
+        details['signs_msigs'].score = scoringCriteria['signs_msigs'];
+        totalScore += scoringCriteria['signs_msigs'];
+    }
+
+    if (msigResults.signedMsigsQuickly) {
+        details['signs_msigs_quickly'].status = true;
+        details['signs_msigs_quickly'].score = scoringCriteria['signs_msigs_quickly'];
+        totalScore += scoringCriteria['signs_msigs_quickly'];
     }
 
     const grade = calculateGrade(totalScore, maxScore);
