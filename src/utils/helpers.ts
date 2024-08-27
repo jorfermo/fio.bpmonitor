@@ -7,11 +7,13 @@ export const getFullBaseUrl = () => {
     let baseUrl = config.baseUrl || 'http://localhost';
     const url = new URL(baseUrl);
 
-    if (!url.port && config.external_port) {
+    if (config.external_port !== null &&
+        ((url.protocol === 'http:' && config.external_port !== 80) ||
+            (url.protocol === 'https:' && config.external_port !== 443))) {
         url.port = config.external_port.toString();
     }
 
-    return url.toString();
+    return url.toString().replace(/\/$/, '');
 };
 
 // Format url
