@@ -6,6 +6,7 @@ export const config = {
     baseUrl: process.env.BASE_URL || 'http://localhost',
     dbUrl: process.env.DATABASE_URL || "postgresql://postgres:password@localhost:5432/bpmonitor",
     port: process.env.PORT || 4000,
+    external_port: process.env.EXTERNAL_PORT || 4000,
     logging: process.env.LOGGING || 'file',// console or file
     loggingLevel: process.env.LOGGING_LEVEL || 'error',
     json_fetch_timeout: Number(process.env.JSON_FETCH_TIMEOUT) || 5000,

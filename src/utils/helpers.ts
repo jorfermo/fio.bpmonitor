@@ -7,9 +7,8 @@ export const getFullBaseUrl = () => {
     let baseUrl = config.baseUrl || 'http://localhost';
     const url = new URL(baseUrl);
 
-    // If no port is specified in the BASE_URL, add the port from config
-    if (!url.port) {
-        url.port = config.port.toString();
+    if (!url.port && config.external_port) {
+        url.port = config.external_port.toString();
     }
 
     return url.toString();
