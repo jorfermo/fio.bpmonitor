@@ -52,98 +52,78 @@ export const getProducersQuery = async (limit?: number, chain: 'mainnet' | 'test
         take: limit
     });
 
-    // Assemble other producer content
-    return producers.map(producer => {
+     return producers.map(producer => {
         const { extendedData, socials, nodes, branding, scores, bundleVotes, feeMultiplier, feeVotes, tools, ...producerData } = producer;
-
-        // Transform socials array into an object
-        const formattedSocials = socials.reduce((acc, social) => {
-            if (social.type && social.handle) {
-                acc[social.type] = social.handle;
-            }
-            return acc;
-        }, {} as Socials);
-
-        // Group nodes by their type
-        const groupedNodes: NodesByType = {
-            producer: [],
-            query: [],
-            full: [],
-            seed: [],
-            other: []
-        };
-
-        nodes.forEach(node => {
-            const { id, producerId, ...nodeData } = node;
-            const nodeType = node.type as keyof NodesByType;
-            if (groupedNodes[nodeType]) {
-                groupedNodes[nodeType].push(nodeData);
-            } else {
-                groupedNodes.other.push(nodeData);
-            }
-        });
-
-        // Format branding data
-        const formattedBranding = branding.reduce((acc, brand) => {
-            acc[brand.type] = brand.url;
-            return acc;
-        }, {} as { [key: string]: string });
-
-        // Get the latest score
-        const latestScore = scores.length > 0 ? scores[0] : null;
-
-        // Add flag icon URL
-        const fullBaseUrl = getFullBaseUrl();
-        const flagIconUrl = extendedData?.location_country
-            ? `${fullBaseUrl}/flags/${extendedData.location_country.toLowerCase()}.svg`
-            : null;
-
-        // Format bundleVotes (now returns an empty object if null)
-        const formattedBundleVotes = bundleVotes ? {
-            bundledbvotenumber: bundleVotes.bundledbvotenumber,
-            lastvotetimestamp: bundleVotes.lastvotetimestamp
-        } : {};
-
-        // Format feeMultiplier (now returns an empty object if null)
-        const formattedFeeMultiplier = feeMultiplier ? {
-            multiplier: feeMultiplier.multiplier,
-            last_vote: feeMultiplier.last_vote
-        } : {};
-
-        // Format feeVotes
-        const formattedFeeVotes = feeVotes.reduce((acc, vote) => {
-            acc[vote.end_point] = {
-                value: vote.value.toString(), // Convert BigInt to string
-                last_vote: vote.last_vote
-            };
-            return acc;
-        }, {} as { [key: string]: { value: string, last_vote: Date } });
-
-        // Format tools (already returns an empty object if empty)
-        const formattedTools = tools.reduce((acc, tool) => {
-            acc[tool.toolName] = tool.toolUrl;
-            return acc;
-        }, {} as { [key: string]: string });
+        const {
+             candidate_name = null,
+             website = null,
+             code_of_conduct = null,
+             email = null,
+             ownership_disclosure = null,
+             location_name = null,
+             location_country = null,
+             location_latitude = null,
+             location_longitude = null
+         } = extendedData || {};
 
         return {
             ...producerData,
             total_votes: Number(producerData.total_votes),
-            ...extendedData,
-            flagIconUrl: flagIconUrl,
-            socials: formattedSocials,
-            nodes: groupedNodes,
-            branding: formattedBranding,
-            score: latestScore ? {
-                time_stamp: latestScore.time_stamp,
-                details: latestScore.details,
-                score: latestScore.score,
-                max_score: latestScore.max_score,
-                grade: latestScore.grade
+            candidate_name,
+            website,
+            code_of_conduct,
+            email,
+            ownership_disclosure,
+            location_name,
+            location_country,
+            location_latitude,
+            location_longitude,
+            flagIconUrl: extendedData?.location_country
+                ? `${getFullBaseUrl()}/flags/${extendedData.location_country.toLowerCase()}.svg`
+                : null,
+            socials: socials.length > 0 ? socials.reduce((acc, social) => {
+                if (social.type && social.handle) {
+                    acc[social.type] = social.handle;
+                }
+                return acc;
+            }, {} as Socials) : {},
+            nodes: nodes.length > 0 ? nodes.reduce((acc, node) => {
+                const { id, producerId, ...nodeData } = node;
+                const nodeType = node.type as keyof NodesByType;
+                if (!acc[nodeType]) acc[nodeType] = [];
+                acc[nodeType].push(nodeData);
+                return acc;
+            }, {} as NodesByType) : {},
+            branding: branding.length > 0 ? branding.reduce((acc, brand) => {
+                acc[brand.type] = brand.url;
+                return acc;
+            }, {} as { [key: string]: string }) : {},
+            score: scores.length > 0 ? {
+                time_stamp: scores[0].time_stamp,
+                details: scores[0].details,
+                score: scores[0].score,
+                max_score: scores[0].max_score,
+                grade: scores[0].grade
             } : null,
-            bundleVotes: formattedBundleVotes,
-            feeMultiplier: formattedFeeMultiplier,
-            feeVotes: formattedFeeVotes,
-            tools: formattedTools
+            bundleVotes: bundleVotes ? {
+                bundledbvotenumber: bundleVotes.bundledbvotenumber,
+                lastvotetimestamp: bundleVotes.lastvotetimestamp
+            } : {},
+            feeMultiplier: feeMultiplier ? {
+                multiplier: feeMultiplier.multiplier,
+                last_vote: feeMultiplier.last_vote
+            } : {},
+            feeVotes: feeVotes.length > 0 ? feeVotes.reduce((acc, vote) => {
+                acc[vote.end_point] = {
+                    value: vote.value.toString(),
+                    last_vote: vote.last_vote
+                };
+                return acc;
+            }, {} as { [key: string]: { value: string, last_vote: Date } }) : {},
+            tools: tools.length > 0 ? tools.reduce((acc, tool) => {
+                acc[tool.toolName] = tool.toolUrl;
+                return acc;
+            }, {} as { [key: string]: string }) : {}
         };
     });
 };

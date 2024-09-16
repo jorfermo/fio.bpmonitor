@@ -83,7 +83,7 @@ cron.schedule('26 1 * * *', async () => {
 });
 
 // Calculate Producer Scores
-cron.schedule('31 1 * * *', async () => {
+cron.schedule('11 * * * *', async () => {
     try {
         await calculateProducerScores();
         logger_log('CRON', 'calculateProducerScores ran successfully.');

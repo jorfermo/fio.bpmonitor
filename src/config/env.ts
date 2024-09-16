@@ -24,4 +24,9 @@ export const config = {
     evaluate_msigs_count: parseInt(process.env.EVALUATE_MSIGS_COUNT || '25', 10),
     evaluate_msigs_percent: parseInt(process.env.EVALUATE_MSIGS_PERCENT || '75', 10),
     evaluate_msigs_time: parseInt(process.env.EVALUATE_MSIGS_PERCENT || '7', 10),
+    github_api_version: {
+        owner: process.env.GITHUB_REPO_OWNER || 'fioprotocol',
+        repo: process.env.GITHUB_REPO_NAME || 'fio',
+        apiUrl: process.env.GITHUB_API_URL || 'https://api.github.com'
+    }
 };

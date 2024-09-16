@@ -1,5 +1,6 @@
 import {prisma} from '../config/database';
 import {config} from '../config/env';
+import axios from 'axios';
 import {logger_error, logger_log} from '../utils/logger';
 
 interface ScoringCriteria {
@@ -50,6 +51,9 @@ export async function calculateProducerScores() {
         const scoringCriteria: ScoringCriteria = config.scoringCriteria;
         const resultPercentiles = config.resultPercentiles;
 
+        // Fetch the latest version once
+        const latestVersion = await getLatestVersionFromGithub();
+
         // Group producers by chain
         const producersByChain: { [key: string]: typeof producers } = {};
         producers.forEach(producer => {
@@ -62,7 +66,7 @@ export async function calculateProducerScores() {
         for (const [, chainProducers] of Object.entries(producersByChain)) {
             for (const producer of chainProducers) {
                 try {
-                    const score = await calculateProducerScore(producer, scoringCriteria, resultPercentiles);
+                    const score = await calculateProducerScore(producer, scoringCriteria, resultPercentiles, latestVersion);
                     await saveScore(producer.id, score);
                 } catch (error) {
                     logger_error('SCORING', `Error calculating score for producer ${producer.id}:`, error);
@@ -77,7 +81,7 @@ export async function calculateProducerScores() {
 }
 
 // Calculates score for a single producer
-async function calculateProducerScore(producer: any, scoringCriteria: ScoringCriteria, resultPercentiles: any) {
+async function calculateProducerScore(producer: any, scoringCriteria: ScoringCriteria, resultPercentiles: any, latestVersion: string) {
     const details: { [key: string]: { status: boolean; score: number } } = {
         has_bp_json: {
             status: !!producer.extendedData,
@@ -100,7 +104,7 @@ async function calculateProducerScore(producer: any, scoringCriteria: ScoringCri
             score: 0
         },
         reports_latest_version: {
-            status: checkLatestVersion(producer.nodes || []),
+            status: checkLatestVersion(producer.nodes || [], latestVersion),
             score: 0
         },
         runs_history_node: {
@@ -202,35 +206,56 @@ function calculateGrade(score: number, maxScore: number): string {
     return 'F';  // Default grade if no range matches
 }
 
+// Fetch latest API version
+export async function getLatestVersionFromGithub(): Promise<string> {
+    const { owner, repo, apiUrl } = config.github_api_version;
+    const url = `${apiUrl}/repos/${owner}/${repo}/releases/latest`;
+
+    try {
+        const response = await axios.get(url, {
+            headers: { 'Accept': 'application/vnd.github.v3+json' }
+        });
+        const latestRelease = response.data;
+        const versionMatch = latestRelease.tag_name.match(/v?(\d+\.\d+\.\d+)/);
+        if (versionMatch) {
+            return versionMatch[1];
+        }
+        throw new Error('Unable to parse version number from GitHub release');
+    } catch (error) {
+        logger_error('SCORING', 'Error fetching latest version from GitHub:', error);
+        throw error;
+    }
+}
+
 // Check for latest version of API node
-function checkLatestVersion(nodes: any[]) {
-    const versions = nodes
+export function checkLatestVersion(nodes: any[], latestVersion: string): boolean {
+    const validVersions = nodes
         .map(node => {
             const match = node.server_version.match(/v?(\d+\.\d+\.\d+)/);
             return match ? match[1] : null;
         })
-        .filter(version => version !== null);
+        .filter((version): version is string => version !== null);
 
-    if (versions.length === 0) {
-        logger_log('SCORING', 'No valid versions found');
+    if (validVersions.length === 0) {
         return false;
     }
 
-    const latestVersion = versions.reduce((a, b) => {
-        return compareVersions(a, b) > 0 ? a : b;
-    });
-
-    return nodes.some(node => node.server_version.includes(latestVersion));
+    return validVersions.some(version => compareVersions(version, latestVersion) >= 0);
 }
 
 // Determines the latest version of API node
-function compareVersions(a: string, b: string) {
+function compareVersions(a: string, b: string): number {
     const partsA = a.split('.').map(Number);
     const partsB = b.split('.').map(Number);
 
-    for (let i = 0; i < 3; i++) {
-        if (partsA[i] > partsB[i]) return 1;
-        if (partsA[i] < partsB[i]) return -1;
+    const maxLength = Math.max(partsA.length, partsB.length);
+
+    for (let i = 0; i < maxLength; i++) {
+        const partA = partsA[i] || 0;
+        const partB = partsB[i] || 0;
+
+        if (partA > partB) return 1;
+        if (partA < partB) return -1;
     }
 
     return 0;

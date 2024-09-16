@@ -4,6 +4,8 @@
   "main": "dist/app.js",
   "scripts": {
     "build": "bash build.sh",
+    "copy-views": "copyfiles -u 1 src/views/**/*.ejs dist/",
+    "postbuild": "npm run copy-views",
     "start": "node dist/app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -17,6 +19,7 @@
     "@types/node": "^20.12.12",
     "axios": "^1.6.8",
     "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
     "express": "^4.19.2",
     "node-cron": "^3.0.3",
     "ts-node": "^10.9.2",
@@ -24,6 +27,7 @@
   },
   "devDependencies": {
     "@types/node-cron": "^3.0.11",
+    "copyfiles": "^2.4.1",
     "prisma": "^5.17.0"
   }
 }

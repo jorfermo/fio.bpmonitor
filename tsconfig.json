@@ -7,7 +7,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "sourceMap": true
   },
   "include": ["src/**/*.ts", "prisma"],
   "exclude": ["node_modules", "dist"]
