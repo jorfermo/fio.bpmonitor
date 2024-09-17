@@ -1,7 +1,8 @@
 import {prisma} from '../config/database';
 import {config} from '../config/env';
 import axios from 'axios';
-import {logger_error, logger_log} from '../utils/logger';
+import { logger_error, logger_log } from '../utils/logger';
+import { triggerProducerChainMap } from './chainMapService';
 
 interface ScoringCriteria {
     [key: string]: number;
@@ -36,6 +37,8 @@ export async function getScoresQuery(limit?: number, chain: 'mainnet' | 'testnet
 // Calculates score for each producer
 export async function calculateProducerScores() {
     try {
+        await triggerProducerChainMap();
+
         const producers = await prisma.producer.findMany({
             where: { status: 'active' },
             include: {
@@ -49,12 +52,11 @@ export async function calculateProducerScores() {
         });
 
         const scoringCriteria: ScoringCriteria = config.scoringCriteria;
+        const mainnetScoringCriteria: ScoringCriteria = config.mainnetScoringCriteria;
         const resultPercentiles = config.resultPercentiles;
 
-        // Fetch the latest version once
         const latestVersion = await getLatestVersionFromGithub();
 
-        // Group producers by chain
         const producersByChain: { [key: string]: typeof producers } = {};
         producers.forEach(producer => {
             if (!producersByChain[producer.chain]) {
@@ -63,10 +65,10 @@ export async function calculateProducerScores() {
             producersByChain[producer.chain].push(producer);
         });
 
-        for (const [, chainProducers] of Object.entries(producersByChain)) {
+        for (const [chain, chainProducers] of Object.entries(producersByChain)) {
             for (const producer of chainProducers) {
                 try {
-                    const score = await calculateProducerScore(producer, scoringCriteria, resultPercentiles, latestVersion);
+                    const score = await calculateProducerScore(producer, scoringCriteria, mainnetScoringCriteria, resultPercentiles, latestVersion);
                     await saveScore(producer.id, score);
                 } catch (error) {
                     logger_error('SCORING', `Error calculating score for producer ${producer.id}:`, error);
@@ -81,7 +83,7 @@ export async function calculateProducerScores() {
 }
 
 // Calculates score for a single producer
-async function calculateProducerScore(producer: any, scoringCriteria: ScoringCriteria, resultPercentiles: any, latestVersion: string) {
+async function calculateProducerScore(producer: any, scoringCriteria: ScoringCriteria, mainnetScoringCriteria: ScoringCriteria, resultPercentiles: any, latestVersion: string) {
     const details: { [key: string]: { status: boolean; score: number } } = {
         has_bp_json: {
             status: !!producer.extendedData,
@@ -156,12 +158,48 @@ async function calculateProducerScore(producer: any, scoringCriteria: ScoringCri
     let totalScore = 0;
     let maxScore = 0;
 
+    // Calculate max_score
+    for (const value of Object.values(scoringCriteria)) {
+        maxScore += value;
+    }
+
+    if (producer.chain === 'Mainnet') {
+        const testnetProducer = await getTestnetProducer(producer.owner);
+        let participatesInTestnet = false;
+        let participationScore = 0;
+
+        if (testnetProducer) {
+            const testnetScore = await getTestnetProducerScore(testnetProducer);
+            participatesInTestnet = testnetScore > 0;
+            const testnetScorePercentage = testnetScore / maxScore;
+            participationScore = Math.round(testnetScorePercentage * mainnetScoringCriteria.participates_in_testnet);
+        }
+
+        details['participates_in_testnet'] = {
+            status: participatesInTestnet,
+            score: participationScore
+        };
+
+        // Updater max_score for Mainnet producer
+        for (const value of Object.values(mainnetScoringCriteria)) {
+            maxScore += value;
+        }
+    }
+
     // Calculate score for all criteria
     for (const [key, value] of Object.entries(scoringCriteria)) {
-        maxScore += value;
         if (details[key] && details[key].status) {
             details[key].score = value;
             totalScore += value;
+        }
+    }
+
+    // Add mainnet-specific scoring
+    if (producer.chain === 'Mainnet') {
+        for (const [key, value] of Object.entries(mainnetScoringCriteria)) {
+            if (details[key] && details[key].status) {
+                totalScore += details[key].score;
+            }
         }
     }
 
@@ -389,4 +427,28 @@ async function saveScore(producerId: number, scoreData: any) {
     } catch (error) {
         logger_error('SCORING', `Catch all error in saveScore() for producer ${producerId}:`, error);
     }
+}
+
+// Fetch Testnet counterpart
+async function getTestnetProducer(mainnetProducer: string): Promise<string | null> {
+    const mapping = await prisma.producerChainMap.findFirst({
+        where: { mainnetProducer }
+    });
+    return mapping ? mapping.testnetProducer : null;
+}
+
+// Fetch Testnet producer score
+async function getTestnetProducerScore(testnetProducer: string): Promise<number> {
+    const latestScore = await prisma.producerScores.findFirst({
+        where: {
+            producer: {
+                owner: testnetProducer,
+                chain: 'Testnet'
+            }
+        },
+        orderBy: {
+            time_stamp: 'desc'
+        }
+    });
+    return latestScore ? latestScore.score : 0;
 }

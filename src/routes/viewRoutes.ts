@@ -3,6 +3,6 @@ import { renderProducersPage } from '../controllers/viewController';
 
 const router = Router();
 
-router.get('/producers', renderProducersPage);
+router.get('/', renderProducersPage);
 
 export default router;

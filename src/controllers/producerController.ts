@@ -6,9 +6,9 @@ export const getProducers = async (req: Request, res: Response) => {
     try {
         const { limit, chain } = req.query;
         const limitNumber = limit ? parseInt(limit as string, 10) : undefined;
-        const chainValue = chain as 'mainnet' | 'testnet' | undefined;
+        const chainValue = chain as 'Mainnet' | 'Testnet' | undefined;
 
-        const producers = await getProducersQuery(limitNumber, chainValue);
+        const producers = await getProducersQuery(limitNumber, chainValue, 'total_votes');
         res.json(producers);
     } catch (error) {
         logger_error('PRODUCERS', 'Error in getProducers:', error);

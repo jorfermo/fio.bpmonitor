@@ -15,5 +15,6 @@ export const scoreDescriptions: { [key: string]: string } = {
     bundle_votes: "Votes on bundles",
     signs_msigs: "Signs msigs",
     signs_msigs_quickly: "Signs msigs in 7 days or less",
-    runs_tools: "Runs <a href='https://github.com/fioprotocol/fio.bpmonitor/blob/master/bptools.md'>tools for community</a>"
+    runs_tools: "Runs <a href='https://github.com/fioprotocol/fio.bpmonitor/blob/master/bptools.md'>tools for community</a>",
+    participates_in_testnet: "For Mainnet BPs, if they have a <a href='https://github.com/fioprotocol/fio.bpmonitor/blob/master/bpchainmap.md'>mapped Testnet BP</a>, the score of that BP is represented."
 };

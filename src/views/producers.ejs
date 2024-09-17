@@ -62,19 +62,19 @@
                         if (typeof scoringCriteria !== 'undefined') {
                         Object.keys(scoringCriteria).forEach(key => {
                             const value = producer.score.details[key];
-                        if (value) {
+                        if (value || (producer.chain === 'Mainnet' && key === 'participates_in_testnet')) {
                             const maxScore = scoringCriteria[key];
                         %>
                         <tr>
                             <td><%= key %></td>
                             <td>
-                                <% if (value.status) { %>
+                                <% if (value && value.status) { %>
                                     <span class="text-green-500">✓</span>
                                 <% } else { %>
                                     <span class="text-red-500">✕</span>
                                 <% } %>
                             </td>
-                            <td><%= value.score %>/<%= maxScore %></td>
+                            <td><%= value ? value.score : 0 %>/<%= maxScore %></td>
                             <td class="score-description"><%- (typeof scoreDescriptions !== 'undefined' && scoreDescriptions[key]) ? scoreDescriptions[key] : 'No description available' %></td>
                         </tr>
                         <%

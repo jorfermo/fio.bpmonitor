@@ -7,6 +7,7 @@ import { fetchProposals } from '../services/proposalService';
 import { calculateProducerScores } from '../services/scoringService';
 import { logger_log, logger_error } from './logger';
 import { triggerToolsFetch } from "../services/toolsService";
+import { triggerProducerChainMap } from "../services/chainMapService";
 
 // Refresh Producers from chain
 cron.schedule('1 1 * * *', async () => {
@@ -78,6 +79,20 @@ cron.schedule('26 1 * * *', async () => {
             logger_error('CRON', `fetchAndUpdateProducerTools job failed.`, error);
         } else {
             logger_log('CRON', 'fetchAndUpdateProducerTools job failed with an unknown error.');
+        }
+    }
+});
+
+// Fetch Chain Map
+cron.schedule('27 * * * *', async () => {
+    try {
+        await triggerProducerChainMap();
+        logger_log('CRON', 'triggerProducerChainMap ran successfully.');
+    } catch (error) {
+        if (error instanceof Error) {
+            logger_error('CRON', `triggerProducerChainMap job failed.`, error);
+        } else {
+            logger_log('CRON', 'triggerProducerChainMap job failed with an unknown error.');
         }
     }
 });

@@ -169,3 +169,11 @@ model producerTools {
 
   @@unique([producerId, toolName])
 }
+
+model ProducerChainMap {
+  id              Int    @id @default(autoincrement())
+  mainnetProducer String
+  testnetProducer String
+
+  @@unique([mainnetProducer, testnetProducer])
+}

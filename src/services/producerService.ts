@@ -22,10 +22,10 @@ interface NodesByType {
 }
 
 // Queries db for active producers' data
-export const getProducersQuery = async (limit?: number, chain: 'mainnet' | 'testnet' = 'mainnet') => {
-    let whereClause: any = {
-        status: 'active',
-        chain: chain === 'mainnet' ? 'Mainnet' : 'Testnet'
+export const getProducersQuery = async (limit?: number, chain: 'Mainnet' | 'Testnet' = 'Mainnet', sortBy: 'total_votes' | 'score' = 'total_votes') => {
+    const whereClause = {
+        status: 'active' as const,
+        chain: chain,
     };
 
     const producers = await prisma.producer.findMany({
@@ -37,22 +37,31 @@ export const getProducersQuery = async (limit?: number, chain: 'mainnet' | 'test
             branding: true,
             scores: {
                 orderBy: {
-                    time_stamp: 'desc'
+                    time_stamp: 'desc',
                 },
-                take: 1
+                take: 1,
             },
             bundleVotes: true,
             feeMultiplier: true,
             feeVotes: true,
-            tools: true
+            tools: true,
         },
-        orderBy: {
-            total_votes: 'desc'
-        },
-        take: limit
+        orderBy: { total_votes: 'desc' },
+        take: limit,
     });
 
-     return producers.map(producer => {
+    let sortedProducers = producers;
+
+    if (sortBy === 'score') {
+        // Sort the producers by the 'score' field of the latest 'scores' record
+        sortedProducers = producers.sort((a, b) => {
+            const aScore = a.scores.length > 0 ? a.scores[0].score : 0;
+            const bScore = b.scores.length > 0 ? b.scores[0].score : 0;
+            return bScore - aScore;
+        });
+    }
+
+    return sortedProducers.map((producer) => {
         const { extendedData, socials, nodes, branding, scores, bundleVotes, feeMultiplier, feeVotes, tools, ...producerData } = producer;
         const {
              candidate_name = null,
