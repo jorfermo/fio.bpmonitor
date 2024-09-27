@@ -179,7 +179,13 @@ export const getProducersQuery = async ( limit?: number, chain: 'Mainnet' | 'Tes
                         max_score: producer.score_max_score,
                         grade: producer.score_grade,
                     }
-                    : null,
+                    : {
+                        time_stamp: new Date().toISOString(),
+                        details: {},
+                        score: 0,
+                        max_score: 0,
+                        grade: 'N/A',
+                    },
             // Bundle Votes
             bundleVotes:
                 producer.bundledbvotenumber !== null && producer.bundledbvotenumber !== undefined
