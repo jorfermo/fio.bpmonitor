@@ -1,4 +1,5 @@
 import { prisma } from '../config/database';
+import { Prisma } from '@prisma/client';
 import { config } from '../config/env';
 import { formatUrl, urlJoin, processTotalVotes, getFullBaseUrl } from "../utils/helpers";
 import { logger_log, logger_error } from '../utils/logger';
@@ -22,119 +23,200 @@ interface NodesByType {
 }
 
 // Queries db for active producers' data
-export const getProducersQuery = async (limit?: number, chain: 'Mainnet' | 'Testnet' = 'Mainnet', sortBy: 'total_votes' | 'score' = 'total_votes') => {
-    const whereClause = {
-        status: 'active' as const,
-        chain: chain,
-    };
+export const getProducersQuery = async ( limit?: number, chain: 'Mainnet' | 'Testnet' = 'Mainnet', sortBy: 'total_votes' | 'score' = 'total_votes' ) => {
+    const chainValue = chain === 'Mainnet' ? 'Mainnet' : 'Testnet';
 
-    const producers = await prisma.producer.findMany({
-        where: whereClause,
-        include: {
-            extendedData: true,
-            socials: true,
-            nodes: true,
-            branding: true,
-            scores: {
-                orderBy: {
-                    time_stamp: 'desc',
-                },
-                take: 1,
-            },
-            bundleVotes: true,
-            feeMultiplier: true,
-            feeVotes: true,
-            tools: true,
-        },
-        orderBy: { total_votes: 'desc' },
-        take: limit,
-    });
+    const orderByClause =
+        sortBy === 'total_votes'
+            ? Prisma.sql`p.total_votes DESC`
+            : Prisma.sql`s.score DESC NULLS LAST`;
 
-    let sortedProducers = producers;
+    const limitClause = limit ? Prisma.sql`LIMIT ${limit}` : Prisma.empty;
 
-    if (sortBy === 'score') {
-        // Sort the producers by the 'score' field of the latest 'scores' record
-        sortedProducers = producers.sort((a, b) => {
-            const aScore = a.scores.length > 0 ? a.scores[0].score : 0;
-            const bScore = b.scores.length > 0 ? b.scores[0].score : 0;
-            return bScore - aScore;
-        });
-    }
+    const producers = await prisma.$queryRaw<any[]>(Prisma.sql`
+    SELECT
+      p.*,
+      ed.candidate_name,
+      ed.website,
+      ed.code_of_conduct,
+      ed.email,
+      ed.ownership_disclosure,
+      ed.location_name,
+      ed.location_country,
+      ed.location_latitude,
+      ed.location_longitude,
+      s.time_stamp AS score_time_stamp,
+      s.details AS score_details,
+      s.score AS score_value,
+      s.max_score AS score_max_score,
+      s.grade AS score_grade,
+      bv.bundledbvotenumber,
+      bv.lastvotetimestamp,
+      fm.multiplier AS fee_multiplier,
+      fm.last_vote AS fee_multiplier_last_vote,
+      -- Aggregate socials
+      (
+        SELECT json_agg(json_build_object('type', soc.type, 'handle', soc.handle))
+        FROM "producerSocials" soc
+        WHERE soc."producerId" = p.id
+      ) AS socials,
+      -- Aggregate nodes
+      (
+        SELECT json_agg(json_build_object(
+          'type', n.type,
+          'location_name', n.location_name,
+          'location_country', n.location_country,
+          'location_latitude', n.location_latitude,
+          'location_longitude', n.location_longitude,
+          'url', n.url,
+          'api', n.api,
+          'historyV1', n."historyV1",
+          'hyperion', n.hyperion,
+          'server_version', n.server_version,
+          'status', n.status
+        ))
+        FROM "producerNodes" n
+        WHERE n."producerId" = p.id
+      ) AS nodes,
+      -- Aggregate branding
+      (
+        SELECT json_agg(json_build_object('type', b.type, 'url', b.url))
+        FROM "producerBranding" b
+        WHERE b."producerId" = p.id
+      ) AS branding,
+      -- Aggregate feeVotes
+      (
+        SELECT json_agg(json_build_object('end_point', fv.end_point, 'value', fv.value, 'last_vote', fv.last_vote))
+        FROM "producerFeeVotes" fv
+        WHERE fv."producerId" = p.id
+      ) AS fee_votes,
+      -- Aggregate tools
+      (
+        SELECT json_agg(json_build_object('toolName', t."toolName", 'toolUrl', t."toolUrl"))
+        FROM "producerTools" t
+        WHERE t."producerId" = p.id
+      ) AS tools
+    FROM "producer" p
+    LEFT JOIN "producerExtendedData" ed ON p.id = ed."producerId"
+    LEFT JOIN LATERAL (
+      SELECT *
+      FROM "producerScores" s
+      WHERE s."producerId" = p.id
+      ORDER BY s.time_stamp DESC
+      LIMIT 1
+    ) s ON true
+    LEFT JOIN "producerBundleVotes" bv ON bv."producerId" = p.id
+    LEFT JOIN "producerFeeMultiplier" fm ON fm."producerId" = p.id
+    WHERE
+      p.status = 'active' AND p.chain = ${chainValue}
+    ORDER BY ${orderByClause}
+    ${limitClause};
+  `);
 
-    return sortedProducers.map((producer) => {
-        const { extendedData, socials, nodes, branding, scores, bundleVotes, feeMultiplier, feeVotes, tools, ...producerData } = producer;
-        const {
-             candidate_name = null,
-             website = null,
-             code_of_conduct = null,
-             email = null,
-             ownership_disclosure = null,
-             location_name = null,
-             location_country = null,
-             location_latitude = null,
-             location_longitude = null
-         } = extendedData || {};
+    // Map the results to the desired structure
+    const result = producers.map((producer) => {
+        const socials = producer.socials || [];
+        const nodes = producer.nodes || [];
+        const branding = producer.branding || [];
+        const feeVotes = producer.fee_votes || [];
+        const tools = producer.tools || [];
 
         return {
-            ...producerData,
-            total_votes: Number(producerData.total_votes),
-            candidate_name,
-            website,
-            code_of_conduct,
-            email,
-            ownership_disclosure,
-            location_name,
-            location_country,
-            location_latitude,
-            location_longitude,
-            flagIconUrl: extendedData?.location_country
-                ? `${getFullBaseUrl()}/flags/${extendedData.location_country.toLowerCase()}.svg`
+            // Include only the necessary fields
+            id: producer.id,
+            chain: producer.chain,
+            chain_table_id: producer.chain_table_id,
+            owner: producer.owner,
+            fio_address: producer.fio_address,
+            addresshash: producer.addresshash,
+            total_votes: Number(producer.total_votes),
+            producer_public_key: producer.producer_public_key,
+            status: producer.status,
+            url: producer.url,
+            unpaid_blocks: producer.unpaid_blocks,
+            last_claim_time: producer.last_claim_time,
+            last_bpclaim: producer.last_bpclaim,
+            location: producer.location,
+            // Extended Data
+            candidate_name: producer.candidate_name,
+            website: producer.website,
+            code_of_conduct: producer.code_of_conduct,
+            email: producer.email,
+            ownership_disclosure: producer.ownership_disclosure,
+            location_name: producer.location_name,
+            location_country: producer.location_country,
+            location_latitude: producer.location_latitude,
+            location_longitude: producer.location_longitude,
+            flagIconUrl: producer.location_country
+                ? `${getFullBaseUrl()}/flags/${producer.location_country.toLowerCase()}.svg`
                 : null,
-            socials: socials.length > 0 ? socials.reduce((acc, social) => {
+            // Socials
+            socials: socials.reduce((acc: Socials, social: any) => {
                 if (social.type && social.handle) {
                     acc[social.type] = social.handle;
                 }
                 return acc;
-            }, {} as Socials) : {},
-            nodes: nodes.length > 0 ? nodes.reduce((acc, node) => {
-                const { id, producerId, ...nodeData } = node;
+            }, {} as Socials),
+            // Nodes
+            nodes: nodes.reduce((acc: NodesByType, node: any) => {
                 const nodeType = node.type as keyof NodesByType;
                 if (!acc[nodeType]) acc[nodeType] = [];
-                acc[nodeType].push(nodeData);
+                acc[nodeType].push(node);
                 return acc;
-            }, {} as NodesByType) : {},
-            branding: branding.length > 0 ? branding.reduce((acc, brand) => {
+            }, {} as NodesByType),
+            // Branding
+            branding: branding.reduce((acc: { [key: string]: string }, brand: any) => {
                 acc[brand.type] = brand.url;
                 return acc;
-            }, {} as { [key: string]: string }) : {},
-            score: scores.length > 0 ? {
-                time_stamp: scores[0].time_stamp,
-                details: scores[0].details,
-                score: scores[0].score,
-                max_score: scores[0].max_score,
-                grade: scores[0].grade
-            } : null,
-            bundleVotes: bundleVotes ? {
-                bundledbvotenumber: bundleVotes.bundledbvotenumber,
-                lastvotetimestamp: bundleVotes.lastvotetimestamp
-            } : {},
-            feeMultiplier: feeMultiplier ? {
-                multiplier: feeMultiplier.multiplier,
-                last_vote: feeMultiplier.last_vote
-            } : {},
-            feeVotes: feeVotes.length > 0 ? feeVotes.reduce((acc, vote) => {
-                acc[vote.end_point] = {
-                    value: vote.value.toString(),
-                    last_vote: vote.last_vote
-                };
-                return acc;
-            }, {} as { [key: string]: { value: string, last_vote: Date } }) : {},
-            tools: tools.length > 0 ? tools.reduce((acc, tool) => {
+            }, {}),
+            // Score
+            score:
+                producer.score_value !== null && producer.score_value !== undefined
+                    ? {
+                        time_stamp: producer.score_time_stamp,
+                        details: producer.score_details,
+                        score: producer.score_value,
+                        max_score: producer.score_max_score,
+                        grade: producer.score_grade,
+                    }
+                    : null,
+            // Bundle Votes
+            bundleVotes:
+                producer.bundledbvotenumber !== null && producer.bundledbvotenumber !== undefined
+                    ? {
+                        bundledbvotenumber: producer.bundledbvotenumber,
+                        lastvotetimestamp: producer.lastvotetimestamp,
+                    }
+                    : {},
+            // Fee Multiplier
+            feeMultiplier:
+                producer.fee_multiplier !== null && producer.fee_multiplier !== undefined
+                    ? {
+                        multiplier: producer.fee_multiplier,
+                        last_vote: producer.fee_multiplier_last_vote,
+                    }
+                    : {},
+            // Fee Votes
+            feeVotes: feeVotes.reduce(
+                (acc: { [key: string]: { value: string; last_vote: Date } }, vote: any) => {
+                    acc[vote.end_point] = {
+                        value: vote.value.toString(),
+                        last_vote: vote.last_vote,
+                    };
+                    return acc;
+                },
+                {}
+            ),
+            // Tools
+            tools: tools.reduce((acc: { [key: string]: string }, tool: any) => {
                 acc[tool.toolName] = tool.toolUrl;
                 return acc;
-            }, {} as { [key: string]: string }) : {}
+            }, {}),
         };
     });
+
+
+    return result;
 };
 
 // Fetches producers for Mainnet and Testnet

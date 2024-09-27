@@ -26,7 +26,7 @@ cron.schedule('1 1 * * *', async () => {
 });
 
 // Check Producer Nodes
-cron.schedule('6 */6 * * *', async () => {
+cron.schedule('11 */4 * * *', async () => {
     try {
         await checkNode();
         logger_log('CRON','checkNode ran successfully.');
@@ -40,7 +40,7 @@ cron.schedule('6 */6 * * *', async () => {
 });
 
 // Check Producer Fee votes
-cron.schedule('16 */3 * * *', async () => {
+cron.schedule('26 1 * * *', async () => {
     try {
         await triggerFeeMultiplierFetch();
         logger_log('CRON', 'fetchAndUpdateFees ran successfully.');
@@ -56,7 +56,7 @@ cron.schedule('16 */3 * * *', async () => {
 });
 
 // Check Producer msig participation
-cron.schedule('21 1 * * *', async () => {
+cron.schedule('29 1 * * *', async () => {
     try {
         await fetchProposals();
         logger_log('CRON', 'fetchProposals ran successfully.');
@@ -70,7 +70,7 @@ cron.schedule('21 1 * * *', async () => {
 });
 
 // Fetch BP Tools
-cron.schedule('26 1 * * *', async () => {
+cron.schedule('32 1 * * *', async () => {
     try {
         await triggerToolsFetch();
         logger_log('CRON', 'fetchAndUpdateProducerTools ran successfully.');
@@ -84,7 +84,7 @@ cron.schedule('26 1 * * *', async () => {
 });
 
 // Fetch Chain Map
-cron.schedule('27 1 * * *', async () => {
+cron.schedule('35 1 * * *', async () => {
     try {
         await triggerProducerChainMap();
         logger_log('CRON', 'triggerProducerChainMap ran successfully.');
@@ -98,7 +98,7 @@ cron.schedule('27 1 * * *', async () => {
 });
 
 // Calculate Producer Scores
-cron.schedule('30 * * * *', async () => {
+cron.schedule('38 */4 * * *', async () => {
     try {
         await calculateProducerScores();
         logger_log('CRON', 'calculateProducerScores ran successfully.');

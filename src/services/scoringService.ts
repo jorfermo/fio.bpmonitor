@@ -2,7 +2,6 @@ import {prisma} from '../config/database';
 import {config} from '../config/env';
 import axios from 'axios';
 import { logger_error, logger_log } from '../utils/logger';
-import { triggerProducerChainMap } from './chainMapService';
 
 interface ScoringCriteria {
     [key: string]: number;
@@ -13,16 +12,12 @@ interface GradeChart {
 }
 
 // Queries db for producer scores
-export async function getScoresQuery(limit?: number, chain: 'mainnet' | 'testnet' = 'mainnet') {
+export async function getScoresQuery(producerId: number, limit: number = 7) {
     try {
-        const whereClause = {
-            producer: {
-                chain: chain === 'mainnet' ? 'Mainnet' : 'Testnet'
-            }
-        };
-
         return await prisma.producerScores.findMany({
-            where: whereClause,
+            where: {
+                producerId: producerId
+            },
             orderBy: {
                 time_stamp: 'desc'
             },
@@ -37,8 +32,6 @@ export async function getScoresQuery(limit?: number, chain: 'mainnet' | 'testnet
 // Calculates score for each producer
 export async function calculateProducerScores() {
     try {
-        await triggerProducerChainMap();
-
         const producers = await prisma.producer.findMany({
             where: { status: 'active' },
             include: {
