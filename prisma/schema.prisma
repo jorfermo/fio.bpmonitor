@@ -33,6 +33,8 @@ model producer {
   tools               producerTools[]
 
   @@unique([chain, chain_table_id])
+  @@index([chain, status])
+  @@index([total_votes])
 }
 
 model producerExtendedData {
@@ -58,6 +60,7 @@ model producerBranding {
   producer   producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
 
   @@unique([producerId, type])
+  @@index([producerId])
 }
 
 model producerSocials {
@@ -68,6 +71,7 @@ model producerSocials {
   producer   producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
 
   @@unique([producerId, type])
+  @@index([producerId])
 }
 
 model producerNodes {
@@ -88,6 +92,8 @@ model producerNodes {
   producer           producer        @relation(fields: [producerId], references: [id], onDelete: Cascade)
   apiNodeChecks      apiNodeCheck[]
   apiFetchChecks     apiFetchCheck[]
+
+  @@index([producerId, status])
 }
 
 model apiNodeCheck {
@@ -125,6 +131,7 @@ model producerFeeVotes {
   producer   producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
 
   @@unique([producerId, end_point])
+  @@index([producerId])
 }
 
 model producerBundleVotes {
@@ -158,6 +165,8 @@ model producerScores {
   max_score  Int
   grade      String
   producer   producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+
+  @@index([producerId, time_stamp])
 }
 
 model producerTools {
@@ -168,6 +177,7 @@ model producerTools {
   producer   producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
 
   @@unique([producerId, toolName])
+  @@index([producerId])
 }
 
 model ProducerChainMap {

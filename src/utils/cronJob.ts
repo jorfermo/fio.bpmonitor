@@ -84,7 +84,7 @@ cron.schedule('26 1 * * *', async () => {
 });
 
 // Fetch Chain Map
-cron.schedule('27 * * * *', async () => {
+cron.schedule('27 1 * * *', async () => {
     try {
         await triggerProducerChainMap();
         logger_log('CRON', 'triggerProducerChainMap ran successfully.');

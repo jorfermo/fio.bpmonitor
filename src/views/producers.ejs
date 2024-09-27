@@ -7,16 +7,32 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.10.3/cdn.min.js" defer></script>
     <style>
-        .score-description a {
-            color: blue;
-            text-decoration: underline;
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .fio-purple {
+            background-color: #765cd6;
+        }
+        .fio-purple-text {
+            color: #765cd6;
         }
     </style>
 </head>
 <body class="bg-gray-100">
-<div class="bg-red-100 p-4 text-center text-red-700 font-bold">
+<div class="bg-red-100 p-2 text-center text-red-700 font-bold">
     For discussion purposes only!
 </div>
+<header class="bg-white shadow-md">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+        <a href="/" class="flex items-center">
+            <img src="https://cdn.prod.website-files.com/64495774f76b514a331bcc66/64495ac74a49d80a523bf037_fiologo-1.png" alt="FIO logo" class="h-8">
+        </a>
+        <nav class="hidden md:flex space-x-6">
+            <a href="/" class="text-gray-700 hover:text-gray-900">Mainnet</a>
+            <a href="/?chain=Testnet" class="text-gray-700 hover:text-gray-900">Testnet</a>
+        </nav>
+    </div>
+</header>
 <div class="container mx-auto px-4 py-8">
     <h1 class="text-3xl font-bold mb-6">FIO Producers</h1>
     <div class="space-y-4">
