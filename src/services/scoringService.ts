@@ -271,7 +271,7 @@ export function checkLatestVersion(nodes: any[], latestVersion: string): boolean
         return false;
     }
 
-    return validVersions.some(version => compareVersions(version, latestVersion) >= 0);
+    return validVersions.some(version => compareVersions(version, latestVersion) === 0);
 }
 
 // Determines the latest version of API node
