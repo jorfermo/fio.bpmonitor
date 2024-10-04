@@ -199,6 +199,7 @@ async function calculateProducerScore(
             }
         }
     }
+
     // Check msig signing
     const msigResults = await checkSignsMsigs(producer).catch((error) => {
         logger_error('SCORING', `Error checking MSIGs for producer ${producer.owner}:`, error);
@@ -222,15 +223,6 @@ async function calculateProducerScore(
         };
 
         totalScore += signsScore + signsQuicklyScore;
-    } else {
-        details['signs_msigs'] = {
-            status: false,
-            score: 0
-        };
-        details['signs_msigs_quickly'] = {
-            status: false,
-            score: 0
-        };
     }
 
     // Calculate no_missing_blocks score. At less than 95% full penalty is applied.
