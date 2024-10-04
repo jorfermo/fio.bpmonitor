@@ -36,7 +36,15 @@ export const getNodesQuery = async (
                 grade,
                 ROW_NUMBER() OVER (PARTITION BY "nodeId" ORDER BY time_stamp DESC) as rn
             FROM "nodeScores"
-        )
+        ),
+             unique_nodes AS (
+                 SELECT DISTINCT ON (n.type, n.url) n.*
+        FROM "producerNodes" n
+        WHERE n.status = 'active'
+          AND n.chain = ${chainValue}
+            ${Prisma.sql([typeCondition])}
+        ORDER BY n.type, n.url, n.id
+            )
         SELECT
             n.*,
             p.owner,
@@ -51,13 +59,10 @@ export const getNodesQuery = async (
                 FROM "producerBranding" b
                 WHERE b."producerId" = p.id
             ) AS branding
-        FROM "producerNodes" n
+        FROM unique_nodes n
                  LEFT JOIN producer p ON n."producerId" = p.id
                  LEFT JOIN "producerExtendedData" pe ON p.id = pe."producerId"
                  LEFT JOIN latest_scores s ON n.id = s."nodeId" AND s.rn = 1
-        WHERE n.status = 'active'
-          AND n.chain = ${chainValue}
-            ${Prisma.sql([typeCondition])}
             ${orderByClause}
     `);
 

@@ -98,6 +98,7 @@ model producerNodes {
 
   @@index([producerId, status])
   @@index([chain, type, status])
+  @@index([type, url, id])
 }
 
 model apiNodeCheck {
