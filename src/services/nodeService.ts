@@ -78,7 +78,7 @@ export const getNodesQuery = async (
         hyperion: node.hyperion,
         server_version: node.server_version,
         status: node.status,
-        score: node.score_value ? {
+        score: node.score_value !== null && node.score_value !== undefined ? {
             details: node.score_details,
             score: node.score_value,
             max_score: node.score_max_score,
@@ -180,18 +180,7 @@ export const checkNode = async () => {
             }
 
         } catch (error: any) {
-            if (error.response) {
-                // Server responded with a status other than 2xx
-                logger_log('NODES',`Node: ${node.id}: API node is not running.`);
-                await prisma.apiNodeCheck.create({
-                    data: {
-                        nodeId: node.id,
-                        server_version: '',
-                        status: error.response.status,
-                    },
-                });
-            } else {
-                // Unable to connect (timeout, DNS issues, etc.)
+                // Unable to connect or other issues (timeout, DNS issues, etc.)
                 logger_log('NODES',`Node: ${node.id}: API node is not running.`);
                 await prisma.apiNodeCheck.create({
                     data: {
@@ -200,7 +189,6 @@ export const checkNode = async () => {
                         status: 0,
                     },
                 });
-            }
             await updateNodeStatus(node.id);
         }
 
@@ -278,7 +266,7 @@ async function updateNodeStatus(nodeId: number) {
         take: 3
     });
 
-    if (recentChecks.length === 3 && recentChecks.every(check => !check.server_version)) {
+    if (recentChecks.length < 3 || recentChecks.every(check => !check.server_version)) {
         await prisma.producerNodes.update({
             where: { id: nodeId },
             data: { status: 'down' }
