@@ -23,95 +23,122 @@ interface NodesByType {
 }
 
 // Queries db for active producers' data
-export const getProducersQuery = async ( limit?: number, chain: 'Mainnet' | 'Testnet' = 'Mainnet', sortBy: 'total_votes' | 'score' = 'total_votes' ) => {
+export const getProducersQuery = async (
+    limit?: number,
+    chain: 'Mainnet' | 'Testnet' = 'Mainnet',
+    sortBy: 'total_votes' | 'score' = 'total_votes'
+) => {
     const chainValue = chain === 'Mainnet' ? 'Mainnet' : 'Testnet';
 
     const orderByClause =
         sortBy === 'total_votes'
             ? Prisma.sql`p.total_votes DESC`
-            : Prisma.sql`s.score DESC NULLS LAST`;
+            : Prisma.sql`COALESCE(s.score_ratio, 0) DESC`;
 
     const limitClause = limit ? Prisma.sql`LIMIT ${limit}` : Prisma.empty;
 
     const producers = await prisma.$queryRaw<any[]>(Prisma.sql`
-    SELECT
-      p.*,
-      ed.candidate_name,
-      ed.website,
-      ed.code_of_conduct,
-      ed.email,
-      ed.ownership_disclosure,
-      ed.location_name,
-      ed.location_country,
-      ed.location_latitude,
-      ed.location_longitude,
-      s.time_stamp AS score_time_stamp,
-      s.details AS score_details,
-      s.score AS score_value,
-      s.max_score AS score_max_score,
-      s.grade AS score_grade,
-      bv.bundledbvotenumber,
-      bv.lastvotetimestamp,
-      fm.multiplier AS fee_multiplier,
-      fm.last_vote AS fee_multiplier_last_vote,
-      -- Aggregate socials
-      (
-        SELECT json_agg(json_build_object('type', soc.type, 'handle', soc.handle))
-        FROM "producerSocials" soc
-        WHERE soc."producerId" = p.id
-      ) AS socials,
-      -- Aggregate nodes
-      (
-        SELECT json_agg(json_build_object(
-          'type', n.type,
-          'location_name', n.location_name,
-          'location_country', n.location_country,
-          'location_latitude', n.location_latitude,
-          'location_longitude', n.location_longitude,
-          'url', n.url,
-          'api', n.api,
-          'historyV1', n."historyV1",
-          'hyperion', n.hyperion,
-          'server_version', n.server_version,
-          'status', n.status
-        ))
-        FROM "producerNodes" n
-        WHERE n."producerId" = p.id
-      ) AS nodes,
-      -- Aggregate branding
-      (
-        SELECT json_agg(json_build_object('type', b.type, 'url', b.url))
-        FROM "producerBranding" b
-        WHERE b."producerId" = p.id
-      ) AS branding,
-      -- Aggregate feeVotes
-      (
-        SELECT json_agg(json_build_object('end_point', fv.end_point, 'value', fv.value, 'last_vote', fv.last_vote))
-        FROM "producerFeeVotes" fv
-        WHERE fv."producerId" = p.id
-      ) AS fee_votes,
-      -- Aggregate tools
-      (
-        SELECT json_agg(json_build_object('toolName', t."toolName", 'toolUrl', t."toolUrl"))
-        FROM "producerTools" t
-        WHERE t."producerId" = p.id
-      ) AS tools
-    FROM "producer" p
-    LEFT JOIN "producerExtendedData" ed ON p.id = ed."producerId"
-    LEFT JOIN LATERAL (
-      SELECT *
-      FROM "producerScores" s
-      WHERE s."producerId" = p.id
-      ORDER BY s.time_stamp DESC
-      LIMIT 1
+        WITH node_scores AS (
+            SELECT
+                ns."nodeId",
+                json_build_object(
+                        'time_stamp', ns.time_stamp,
+                        'details', ns.details,
+                        'score', ns.score,
+                        'max_score', ns.max_score,
+                        'grade', ns.grade
+                ) AS score_data
+            FROM "nodeScores" ns
+            WHERE ns.time_stamp = (
+                SELECT MAX(time_stamp)
+                FROM "nodeScores"
+                WHERE "nodeId" = ns."nodeId"
+            )
+        )
+        SELECT
+            p.*,
+            ed.candidate_name,
+            ed.website,
+            ed.code_of_conduct,
+            ed.email,
+            ed.ownership_disclosure,
+            ed.location_name,
+            ed.location_country,
+            ed.location_latitude,
+            ed.location_longitude,
+            s.time_stamp AS score_time_stamp,
+            s.details AS score_details,
+            s.score AS score_value,
+            s.max_score AS score_max_score,
+            s.grade AS score_grade,
+            s.score_ratio,
+            bv.bundledbvotenumber,
+            bv.lastvotetimestamp,
+            fm.multiplier AS fee_multiplier,
+            fm.last_vote AS fee_multiplier_last_vote,
+            -- Aggregate socials
+            (
+                SELECT json_agg(json_build_object('type', soc.type, 'handle', soc.handle))
+                FROM "producerSocials" soc
+                WHERE soc."producerId" = p.id
+            ) AS socials,
+            -- Aggregate nodes with scores
+            (
+                SELECT json_agg(json_build_object(
+                        'type', n.type,
+                        'location_name', n.location_name,
+                        'location_country', n.location_country,
+                        'location_latitude', n.location_latitude,
+                        'location_longitude', n.location_longitude,
+                        'url', n.url,
+                        'api', n.api,
+                        'historyV1', n."historyV1",
+                        'hyperion', n.hyperion,
+                        'server_version', n.server_version,
+                        'status', n.status,
+                        'score', CASE
+                                     WHEN n.api = true THEN ns.score_data
+                                     ELSE '[]'::json
+                            END
+                                ))
+                FROM "producerNodes" n
+                         LEFT JOIN node_scores ns ON n.id = ns."nodeId"
+                WHERE n."producerId" = p.id
+            ) AS nodes,
+            -- Aggregate branding
+            (
+                SELECT json_agg(json_build_object('type', b.type, 'url', b.url))
+                FROM "producerBranding" b
+                WHERE b."producerId" = p.id
+            ) AS branding,
+            -- Aggregate feeVotes
+            (
+                SELECT json_agg(json_build_object('end_point', fv.end_point, 'value', fv.value, 'last_vote', fv.last_vote))
+                FROM "producerFeeVotes" fv
+                WHERE fv."producerId" = p.id
+            ) AS fee_votes,
+            -- Aggregate tools
+            (
+                SELECT json_agg(json_build_object('toolName', t."toolName", 'toolUrl', t."toolUrl"))
+                FROM "producerTools" t
+                WHERE t."producerId" = p.id
+            ) AS tools
+        FROM "producer" p
+                 LEFT JOIN "producerExtendedData" ed ON p.id = ed."producerId"
+                 LEFT JOIN LATERAL (
+            SELECT *
+            FROM "producerScores" s
+            WHERE s."producerId" = p.id
+            ORDER BY s.time_stamp DESC
+                LIMIT 1
     ) s ON true
-    LEFT JOIN "producerBundleVotes" bv ON bv."producerId" = p.id
-    LEFT JOIN "producerFeeMultiplier" fm ON fm."producerId" = p.id
-    WHERE
-      p.status = 'active' AND p.chain = ${chainValue}
-    ORDER BY ${orderByClause}
-    ${limitClause};
-  `);
+            LEFT JOIN "producerBundleVotes" bv ON bv."producerId" = p.id
+            LEFT JOIN "producerFeeMultiplier" fm ON fm."producerId" = p.id
+        WHERE
+            p.status = 'active' AND p.chain = ${chainValue}
+        ORDER BY ${orderByClause}
+                 ${limitClause};
+    `);
 
     // Map the results to the desired structure
     const result = producers.map((producer) => {
@@ -128,6 +155,7 @@ export const getProducersQuery = async ( limit?: number, chain: 'Mainnet' | 'Tes
             chain_table_id: producer.chain_table_id,
             owner: producer.owner,
             fio_address: producer.fio_address,
+            fio_address_valid: producer.fio_address_valid,
             addresshash: producer.addresshash,
             total_votes: Number(producer.total_votes),
             producer_public_key: producer.producer_public_key,
@@ -161,7 +189,11 @@ export const getProducersQuery = async ( limit?: number, chain: 'Mainnet' | 'Tes
             nodes: nodes.reduce((acc: NodesByType, node: any) => {
                 const nodeType = node.type as keyof NodesByType;
                 if (!acc[nodeType]) acc[nodeType] = [];
-                acc[nodeType].push(node);
+                const nodeWithScore = {
+                    ...node,
+                    score: node.api ? node.score : []
+                };
+                acc[nodeType].push(nodeWithScore);
                 return acc;
             }, {} as NodesByType),
             // Branding
@@ -221,7 +253,6 @@ export const getProducersQuery = async ( limit?: number, chain: 'Mainnet' | 'Tes
         };
     });
 
-
     return result;
 };
 
@@ -251,6 +282,18 @@ export async function fetchProducers() {
                 const { id, is_active, total_votes, ...producerData } = producer;
                 const status = is_active === 1 ? 'active' : 'inactive';
                 const processedVotes = processTotalVotes(producer.total_votes);
+
+                // Check FIO address validity
+                let fio_address_valid = true;
+                try {
+                    const availCheckResponse = await axios.post(`${apiUrl}/v1/chain/avail_check`, {
+                        fio_name: producer.fio_address
+                    });
+                    fio_address_valid = availCheckResponse.data.is_registered === 1;
+                } catch (error) {
+                    logger_error('PRODUCERS', `Error checking FIO address validity for ${chain} producer ${chain_table_id}:`, error);
+                }
+
                 const existingProducer = await prisma.producer.findUnique({
                     where: {
                         chain_chain_table_id: {
@@ -272,6 +315,7 @@ export async function fetchProducers() {
                         total_votes: processedVotes,
                         status,
                         last_claim_time: new Date(producer.last_claim_time),
+                        fio_address_valid,
                     },
                     create: {
                         ...producerData,
@@ -280,6 +324,7 @@ export async function fetchProducers() {
                         last_claim_time: new Date(producer.last_claim_time),
                         chain,
                         chain_table_id,
+                        fio_address_valid
                     },
                 });
 
@@ -380,7 +425,11 @@ export async function fetchBpJson() {
 }
 
 // Fetches and processes individual bp.json
-async function processBpJson(producerId: number, bpJsonUrl: string, chain: string) {
+async function processBpJson(
+    producerId: number,
+    bpJsonUrl: string,
+    chain: string
+) {
     try {
         logger_log('PRODUCERS', `Fetching bp.json for ${chain} producer ${producerId} from ${bpJsonUrl}`);
         const bpResponse = await axios.get(bpJsonUrl, { timeout: config.json_fetch_timeout });
@@ -469,15 +518,24 @@ async function processBpJson(producerId: number, bpJsonUrl: string, chain: strin
 
             if (Array.isArray(bpData.nodes)) {
                 for (const node of bpData.nodes) {
-                    const api = node.features?.includes('chain-api') || node.features?.includes('fio-api') || node.node_type === 'query' || node.node_type === 'full';
-                    const historyV1 = node.features?.includes('history-v1');
-                    const hyperion = node.features?.includes('hyperion-v2');
                     let nodeTypes: string[] = Array.isArray(node.node_type) ? node.node_type : [node.node_type];
-                    const url = node.ssl_endpoint || node.api_endpoint || node.p2p_endpoint;
-                    let nodeUrl = url || '';
-                    if (nodeTypes.includes('query') || nodeTypes.includes('full')) nodeUrl = formatUrl(nodeUrl);
 
                     for (const type of nodeTypes) {
+                        const api = type === 'query' || type === 'full';
+                        const historyV1 = api && node.features?.includes('history-v1') || false;
+                        const hyperion = api && node.features?.includes('hyperion-v2') || false;
+
+                        let nodeUrl = '';
+                        if (type === 'seed') {
+                            nodeUrl = node.p2p_endpoint || node.ssl_endpoint || node.api_endpoint || '';
+                        } else {
+                            nodeUrl = node.ssl_endpoint || node.api_endpoint || '';
+                        }
+
+                        if (api) {
+                            nodeUrl = formatUrl(nodeUrl);
+                        }
+
                         if (type !== 'producer' && !nodeUrl) {
                             logger_log('PRODUCERS', `Skipping node of type ${type} with missing URL for producer ${producerId}.`);
                             continue;
@@ -493,23 +551,25 @@ async function processBpJson(producerId: number, bpJsonUrl: string, chain: strin
                             }
                         });
 
+                        const nodeData = {
+                            location_name: node.location?.name || '',
+                            location_country: node.location?.country || '',
+                            location_latitude: node.location?.latitude || 0,
+                            location_longitude: node.location?.longitude || 0,
+                            chain,
+                            api,
+                            historyV1,
+                            hyperion,
+                            server_version: node.server_version || '',
+                            status: 'active'
+                        };
+
                         if (existingNode) {
                             // Update existing node
                             logger_log('PRODUCERS', `Updating existing node ${existingNode.id} for producer ${producerId}.`);
                             await prisma.producerNodes.update({
                                 where: { id: existingNode.id },
-                                data: {
-                                    location_name: node.location?.name || '',
-                                    location_country: node.location?.country || '',
-                                    location_latitude: node.location?.latitude || 0,
-                                    location_longitude: node.location?.longitude || 0,
-                                    chain,
-                                    api: !!api,
-                                    historyV1: !!historyV1,
-                                    hyperion: !!hyperion,
-                                    server_version: node.server_version || '',
-                                    status: 'active'
-                                }
+                                data: nodeData
                             });
                         } else {
                             // Create new node
@@ -517,18 +577,9 @@ async function processBpJson(producerId: number, bpJsonUrl: string, chain: strin
                             await prisma.producerNodes.create({
                                 data: {
                                     producerId,
-                                    location_name: node.location?.name || '',
-                                    location_country: node.location?.country || '',
-                                    location_latitude: node.location?.latitude || 0,
-                                    location_longitude: node.location?.longitude || 0,
                                     type,
-                                    chain,
-                                    api: !!api,
-                                    historyV1: !!historyV1,
-                                    hyperion: !!hyperion,
                                     url: nodeUrl,
-                                    server_version: node.server_version || '',
-                                    status: 'active'
+                                    ...nodeData
                                 }
                             });
                         }

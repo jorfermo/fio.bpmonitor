@@ -4,7 +4,7 @@ import { checkNode } from '../services/nodeService';
 import { triggerFeeMultiplierFetch } from '../services/feeService';
 import { triggerBundleFetch } from '../services/bundleService';
 import { fetchProposals } from '../services/proposalService';
-import { calculateProducerScores } from '../services/scoringService';
+import { calculateNodeScores, calculateProducerScores } from '../services/scoringService';
 import { logger_log, logger_error } from './logger';
 import { triggerToolsFetch } from "../services/toolsService";
 import { triggerProducerChainMap } from "../services/chainMapService";
@@ -56,7 +56,7 @@ cron.schedule('26 1 * * *', async () => {
 });
 
 // Check Producer msig participation
-cron.schedule('29 1 * * *', async () => {
+cron.schedule('28 1 * * *', async () => {
     try {
         await fetchProposals();
         logger_log('CRON', 'fetchProposals ran successfully.');
@@ -70,7 +70,7 @@ cron.schedule('29 1 * * *', async () => {
 });
 
 // Fetch BP Tools
-cron.schedule('32 1 * * *', async () => {
+cron.schedule('30 1 * * *', async () => {
     try {
         await triggerToolsFetch();
         logger_log('CRON', 'fetchAndUpdateProducerTools ran successfully.');
@@ -84,7 +84,7 @@ cron.schedule('32 1 * * *', async () => {
 });
 
 // Fetch Chain Map
-cron.schedule('35 1 * * *', async () => {
+cron.schedule('32 1 * * *', async () => {
     try {
         await triggerProducerChainMap();
         logger_log('CRON', 'triggerProducerChainMap ran successfully.');
@@ -97,8 +97,22 @@ cron.schedule('35 1 * * *', async () => {
     }
 });
 
+// Calculate Node Scores
+cron.schedule('34 */4 * * *', async () => {
+    try {
+        await calculateNodeScores();
+        logger_log('CRON', 'calculateNodeScores ran successfully.');
+    } catch (error) {
+        if (error instanceof Error) {
+            logger_error('CRON', `calculateNodeScores job failed.`, error);
+        } else {
+            logger_log('CRON', 'calculateNodeScores job failed with an unknown error.');
+        }
+    }
+});
+
 // Calculate Producer Scores
-cron.schedule('38 */4 * * *', async () => {
+cron.schedule('36 */4 * * *', async () => {
     try {
         await calculateProducerScores();
         logger_log('CRON', 'calculateProducerScores ran successfully.');

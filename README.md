@@ -66,6 +66,7 @@ pm2 start dist/app.js --name bpmonitor
 |Path|Description|
 |---|---|
 |/|Producers sorted by Score|
+|/nodes|Nodes sorted by Score|
 
 ## API
 ### Endpoints
