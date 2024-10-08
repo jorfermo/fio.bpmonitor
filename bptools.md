@@ -25,3 +25,4 @@
 |Testnet|yz5p4rb4begx|Wrapping Oracle|https://fioprotocol.atlassian.net/wiki/spaces/DAO/pages/544014340/Custodians+and+Oracles|
 |Testnet|gws1hlwlqhq1|Wrapping Oracle|https://fioprotocol.atlassian.net/wiki/spaces/DAO/pages/544014340/Custodians+and+Oracles|
 |Mainnet|gx5o44uyzscl|Video Tutorials|https://www.youtube.com/@BPKiwi|
+|Mainnet|ymtwytro3ir5|Nodestatus|https://nodestatus.ledgerwise.io/fio|
